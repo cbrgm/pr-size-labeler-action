@@ -43,4 +43,4 @@ make build
 ## Contributing & License
 
 Feel free to submit changes! See the [Contributing Guide](https://github.com/cbrgm/contributing/blob/master/CONTRIBUTING.md). This project is open-source
-and is developed under the terms of the [Apache 2.0 License](https://github.com/cbrgm/mastodon-github-action/blob/master/LICENSE).
+and is developed under the terms of the [Apache 2.0 License](https://github.com/cbrgm/pr-size-labeler-action/blob/master/LICENSE).
