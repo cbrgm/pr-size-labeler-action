@@ -26,3 +26,7 @@ runs:
     GITHUB_REPOSITORY: ${{ inputs.github_repository }}
     GITHUB_TOKEN: ${{ inputs.github_token }}
     PULL_REQUEST_NUMBER: ${{ inputs.github_pr_number }}
+
+branding:
+  icon: bar-chart
+  color: red
