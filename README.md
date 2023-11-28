@@ -3,7 +3,7 @@
 **Automatically labels pull requests in your GitHub repository based on the size of changes.**
 
 [![GitHub release](https://img.shields.io/github/release/cbrgm/pr-size-labeler-action.svg)](https://github.com/cbrgm/pr-size-labeler-action)
-[![Docker Repository on Quay](https://quay.io/repository/cbrgm/pr-size-labeler-action/status "Docker Repository on Quay")](https://quay.io/repository/cbrgm/pr-size-labeler-action)
+[[Docker Repository on Quay](https://quay.io/repository/cbrgm/pr-size-labeler-action/status "Docker Repository on Quay")](https://quay.io/repository/cbrgm/pr-size-labeler-action)
 
 ## Workflow Usage
 
