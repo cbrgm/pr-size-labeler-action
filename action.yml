@@ -1,0 +1,28 @@
+name: 'PR Size Labeler Action'
+description: 'Automatically labels pull requests based on their size, considering lines changed and number of files affected.'
+author: 'cbrgm'
+
+# Define your inputs here.
+inputs:
+  github_token:
+    description: 'GitHub token to authenticate with'
+    required: true
+  github_pr_number:
+    description: 'The number of your pull request'
+    required: true
+  github_repository:
+    description: 'The name of the repository in format owner/repository'
+    required: true
+  config_file_path:
+    description: 'The path to the configuration file'
+    required: false
+
+runs:
+  using: docker
+  image: 'docker://quay.io/cbrgm/pr-size-labeler-action:v1'
+  env:
+    CONFIG_FILE_PATH: ${{ inputs.config_file_path }}
+    GITHUB_EVENT_NAME: "pull_request"
+    GITHUB_REPOSITORY: ${{ inputs.github_repository }}
+    GITHUB_TOKEN: ${{ inputs.github_token }}
+    PULL_REQUEST_NUMBER: ${{ inputs.github_pr_number }}
