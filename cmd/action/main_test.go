@@ -348,3 +348,52 @@ func TestLabelExists(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldExcludeFile(t *testing.T) {
+	tests := []struct {
+		name       string
+		filename   string
+		patterns   []string
+		wantResult bool
+	}{
+		{
+			name:       "exclude specific file",
+			filename:   "foo.bar",
+			patterns:   []string{"foo.bar"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude by extension",
+			filename:   "example.xyz",
+			patterns:   []string{"*.xyz"},
+			wantResult: true,
+		},
+		{
+			name:       "do not exclude unrelated file",
+			filename:   "test.txt",
+			patterns:   []string{"*.xyz"},
+			wantResult: false,
+		},
+		{
+			name:       "exclude with full path",
+			filename:   "/path/to/file/foo.bar",
+			patterns:   []string{"foo.bar"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude with pattern and full path",
+			filename:   "/path/to/file/example.xyz",
+			patterns:   []string{"*.xyz"},
+			wantResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := shouldExcludeFile(tt.filename, tt.patterns)
+			if result != tt.wantResult {
+				t.Errorf("shouldExcludeFile(%v, %v) = %v, want %v", tt.filename, tt.patterns, result, tt.wantResult)
+			}
+		})
+	}
+}
