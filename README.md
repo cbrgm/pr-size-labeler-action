@@ -16,22 +16,21 @@ Add the following step to your GitHub Actions Workflow:
 name: PR Size Labeler
 
 on:
-  pull_request:
+  pull_request: # Trigger the workflow when a pull request is opened or synchronized
 
 jobs:
-  label-pr:
+  auto-label-pr:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v2
-
+        uses: actions/checkout@v2 # Checkout the repository code
       - name: Label PR based on size
         uses: cbrgm/pr-size-labeler-action@main
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          github_repository: ${{ github.repository }}
-          github_pr_number: ${{ github.event.number }}
-          config_file_path: '.github/pull-request-size.yml'
+          github_token: ${{ secrets.GITHUB_TOKEN }} # Pass the GitHub token for authentication
+          github_repository: ${{ github.repository }} # Pass the repository name
+          github_pr_number: ${{ github.event.number }} # Pass the pull request number
+          config_file_path: '.github/pull-request-size.yml' # Specify the path to the configuration file
 ```
 
 ### Local Development
