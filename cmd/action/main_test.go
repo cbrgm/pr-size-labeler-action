@@ -348,3 +348,112 @@ func TestLabelExists(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldExcludeFile(t *testing.T) {
+	tests := []struct {
+		name       string
+		filename   string
+		patterns   []string
+		wantResult bool
+	}{
+		{
+			name:       "exclude specific file",
+			filename:   "foo.bar",
+			patterns:   []string{"foo.bar"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude by extension",
+			filename:   "example.xyz",
+			patterns:   []string{"*.xyz"},
+			wantResult: true,
+		},
+		{
+			name:       "do not exclude unrelated file",
+			filename:   "test.txt",
+			patterns:   []string{"*.xyz"},
+			wantResult: false,
+		},
+		{
+			name:       "exclude with full path",
+			filename:   "/path/to/file/foo.bar",
+			patterns:   []string{"/path/to/file/foo.bar"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude with wildcard in path",
+			filename:   "/some/path/example.txt",
+			patterns:   []string{"/some/path/*"},
+			wantResult: true,
+		},
+		{
+			name:       "do not exclude when path pattern does not match",
+			filename:   "/another/path/example.txt",
+			patterns:   []string{"/some/path/*"},
+			wantResult: false,
+		},
+		{
+			name:       "exclude with complex path pattern",
+			filename:   "/complex/path/with/multiple/sections/file.xyz",
+			patterns:   []string{"/complex/path/*/multiple/*/file.xyz"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude nested directory file",
+			filename:   "/nested/directory/structure/file.txt",
+			patterns:   []string{"/nested/directory/*"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude using multiple patterns",
+			filename:   "multiple.patterns.match",
+			patterns:   []string{"*.patterns.*", "multiple.*"},
+			wantResult: true,
+		},
+		{
+			name:       "do not exclude when multiple patterns do not match",
+			filename:   "no.pattern.match",
+			patterns:   []string{"*.patterns.*", "multiple.*"},
+			wantResult: false,
+		},
+		{
+			name:       "exclude using complex wildcard patterns",
+			filename:   "/var/log/app.log",
+			patterns:   []string{"/var/*/app.*", "*.log"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude file in root directory",
+			filename:   "/rootfile.txt",
+			patterns:   []string{"/*.txt"},
+			wantResult: true,
+		},
+		{
+			name:       "do not exclude file in non-root directory with root pattern",
+			filename:   "/dir/rootfile.txt",
+			patterns:   []string{"/*.txt"},
+			wantResult: false,
+		},
+		{
+			name:       "exclude using pattern with escaped special characters",
+			filename:   "file_with_underscores_and_numbers_123.txt",
+			patterns:   []string{"file_with_underscores_and_numbers_*.txt"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude using pattern with question mark",
+			filename:   "file?.txt",
+			patterns:   []string{"file?.txt"},
+			wantResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := shouldExcludeFile(tt.filename, tt.patterns)
+			if result != tt.wantResult {
+				t.Errorf("shouldExcludeFile(%v, %v) = %v, want %v", tt.filename, tt.patterns, result, tt.wantResult)
+			}
+		})
+	}
+}

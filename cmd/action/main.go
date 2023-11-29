@@ -240,6 +240,7 @@ func calculateSizeAndDiff(files []*github.CommitFile, config Config) (ConfigEntr
 // shouldExcludeFile checks if a file should be excluded based on the configuration.
 func shouldExcludeFile(filename string, patterns []string) bool {
 	for _, pattern := range patterns {
+		// Check against the full path
 		matched, err := filepath.Match(pattern, filename)
 		if err != nil {
 			fmt.Printf("Invalid pattern %s: %s\n", pattern, err)
@@ -247,6 +248,25 @@ func shouldExcludeFile(filename string, patterns []string) bool {
 		}
 		if matched {
 			return true
+		}
+
+		// Extract just the file name and check the pattern again
+		justFileName := filepath.Base(filename)
+		matched, err = filepath.Match(pattern, justFileName)
+		if err != nil {
+			fmt.Printf("Invalid pattern %s: %s\n", pattern, err)
+			continue
+		}
+		if matched {
+			return true
+		}
+
+		// Check if the pattern specifies a directory and matches the beginning of the filename
+		if strings.HasSuffix(pattern, "/*") {
+			dirPattern := filepath.Dir(pattern)
+			if strings.HasPrefix(filename, dirPattern) {
+				return true
+			}
 		}
 	}
 	return false
