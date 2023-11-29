@@ -260,6 +260,14 @@ func shouldExcludeFile(filename string, patterns []string) bool {
 		if matched {
 			return true
 		}
+
+		// Check if the pattern specifies a directory and matches the beginning of the filename
+		if strings.HasSuffix(pattern, "/*") {
+			dirPattern := filepath.Dir(pattern)
+			if strings.HasPrefix(filename, dirPattern) {
+				return true
+			}
+		}
 	}
 	return false
 }
