@@ -1,7 +1,7 @@
 ---
 repository:
   name: cbrgm/pr-size-labeler-action
-  description: Automates the generation of project files and templates for repositories (and others) based on customizable YAML configurations.
+  description: Automatically labels pull requests in your GitHub repository based on the size of changes.
   homepage: https://cbrgm.net
   topics: gihub-actions, github, action, go, size, pull-requests, labels
 
