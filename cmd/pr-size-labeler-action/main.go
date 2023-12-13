@@ -5,13 +5,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/google/go-github/v56/github"
 	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
+)
+
+// Global variables for application metadata.
+var (
+	Version   string              // Version of the application.
+	Revision  string              // Revision or Commit this binary was built from.
+	GoVersion = runtime.Version() // GoVersion running this binary.
+	StartTime = time.Now()        // StartTime of the application.
 )
 
 // EnvArgs struct holds the required environment variables.
@@ -21,6 +31,11 @@ type EnvArgs struct {
 	PrNumber       string `arg:"env:PULL_REQUEST_NUMBER,required"`
 	RepoName       string `arg:"env:GITHUB_REPOSITORY,required"`
 	ConfigFilePath string `arg:"env:CONFIG_FILE_PATH"`
+}
+
+// Version returns a formatted string with application version details.
+func (EnvArgs) Version() string {
+	return fmt.Sprintf("Version: %s %s\nBuildTime: %s\n%s\n", Revision, Version, StartTime.Format("2006-01-02"), GoVersion)
 }
 
 // Constants for default configuration and event names.
