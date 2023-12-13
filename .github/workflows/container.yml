@@ -71,8 +71,6 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            cbrgm/pr-size-labeler-action
-            quay.io/cbrgm/pr-size-labeler-action
             ghcr.io/cbrgm/pr-size-labeler-action
           labels: |
             org.opencontainers.image.vendor=cbrgm
