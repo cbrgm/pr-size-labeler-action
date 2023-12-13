@@ -1,6 +1,6 @@
 ---
 repository:
-  name: cbrgm/pr-size-labeler-action
+  name: pr-size-labeler-action
   description: Automatically labels pull requests in your GitHub repository based on the size of changes.
   homepage: https://cbrgm.net
   topics: gihub-actions, github, action, go, size, pull-requests, labels
