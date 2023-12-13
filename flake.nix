@@ -1,5 +1,5 @@
 {
-  description = "structuresmith";
+  description = "pr-size-labeler-action";
 
   inputs =
     {
