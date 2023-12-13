@@ -31,8 +31,4 @@ branches:
         contexts:
           - testing
       enforce_admins: false
-      restrictions:
-        apps:
-          - cbrgm[bot]
-        users: []
 ...
