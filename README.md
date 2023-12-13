@@ -90,8 +90,8 @@ make build
 
 ## Contributing & License
 
-Your contributions are highly welcomed and appreciated! If you're interested in enhancing this project, please refer to our detailed [Contributing Guide](https://github.com/cbrgm/pr-size-labeler-action/blob/main/CONTRIBUTING.md) for guidelines and best practices. This guide will assist you in understanding the process for submitting changes, setting up your development environment, and more.
+We welcome and value your contributions to this project! 👍 If you're interested in making improvements or adding features, please refer to our [Contributing Guide](https://github.com/cbrgm/pr-size-labeler-action/blob/main/CONTRIBUTING.md) 📝. This guide provides comprehensive instructions on how to submit changes, set up your development environment, and more.
 
-This project is a labor of love, developed in my free time and provided for free to the community. As an open-source initiative, it operates under the [Apache 2.0 License](https://github.com/cbrgm/pr-size-labeler-action/blob/main/LICENSE). This license grants you legal permission to use, modify, and distribute this software. Please review the license terms to understand your rights and responsibilities.
+Please note that this project is developed in my spare time and is available for free 🕒💻. As an open-source initiative, it is governed by the [Apache 2.0 License](https://github.com/cbrgm/pr-size-labeler-action/blob/main/LICENSE) 📃. This license outlines your rights and obligations when using, modifying, and distributing this software.
 
-Your involvement, whether through contributions, suggestions, or feedback, is essential for keeping this project vibrant and beneficial to all. Let's collaborate to make this tool even better!
+Your involvement, whether it's through code contributions, suggestions, or feedback, is crucial for the ongoing improvement and success of this project 🚀. Together, we can ensure it remains a useful and well-maintained resource for everyone 🌍.
