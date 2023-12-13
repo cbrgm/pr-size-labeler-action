@@ -3,7 +3,7 @@ RUN apk add --no-cache ca-certificates
 
 FROM scratch
 
-ENTRYPOINT ["/usr/bin/<no value>"]
+ENTRYPOINT ["/usr/bin/pr-size-labeler-action"]
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
