@@ -39,17 +39,10 @@ jobs:
 
     steps:
 
-      - name: GitHub App Token
-        uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.PRIVATE_KEY }}
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.BOT_PAT_TOKEN }}
 
       - name: Setup golang
         id: golang
@@ -107,8 +100,8 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
-          username: ${{ steps.app-token.outputs.app-id }}
-          password: ${{ steps.app-token.outputs.token }}
+          username: cbrgm
+          password: ${{ secrets.BOT_PAT_TOKEN }}
 
       - name: Build image
         id: publish
@@ -139,7 +132,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.BOT_PAT_TOKEN }}
 
       - name: Ghcr tags
         id: ghcrTags
@@ -158,8 +151,8 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actionhippie/manifest@v1
         with:
-          username: ${{ steps.app-token.outputs.app-id }}
-          password: ${{ steps.app-token.outputs.token }}
+          username: cbrgm
+          password: ${{ secrets.BOT_PAT_TOKEN }}
           platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v6
           template: ghcr.io/cbrgm/pr-size-labeler-action:VERSION-OS-ARCH
           target: ${{ steps.ghcrTags.outputs.tags }}

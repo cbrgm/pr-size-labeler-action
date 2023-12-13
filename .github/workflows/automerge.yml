@@ -17,28 +17,23 @@ jobs:
     if: github.actor == 'dependabot[bot]'
 
     steps:
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Fetch metadata
         id: metadata
         uses: dependabot/fetch-metadata@v1
         with:
-          github-token: ${{ steps.app-token.outputs.token }}
+          github-token: ${{ secrets.BOT_PAT_TOKEN }}
 
       - name: Approve request
         id: approve
         run: gh pr review --approve ${{ github.event.pull_request.html_url }}
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.BOT_PAT_TOKEN }}
 
       - name: Enable automerge
         id: automerge
         run: gh pr merge --rebase --auto ${{ github.event.pull_request.html_url }}
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.BOT_PAT_TOKEN }}
 
 ...
