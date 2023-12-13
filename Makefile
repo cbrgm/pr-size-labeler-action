@@ -17,7 +17,7 @@ PACKAGES ?= $(shell go list ./...)
 SOURCES ?= $(shell find . -name "*.go" -type f)
 GENERATE ?= $(PACKAGES)
 
-TAGS ?= netgo genji sqlite
+TAGS ?=
 
 ifndef OUTPUT
 	ifeq ($(GITHUB_REF_TYPE), tag)
@@ -99,67 +99,67 @@ $(DIST):
 
 .PHONY: release-linux
 release-linux: $(DIST) \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-386 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-amd64 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm-5 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm-6 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm-7 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm64 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mips \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mips64 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mipsle \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mips64le
+	$(DIST)/$(EXECUTABLE)_linux-386 \
+	$(DIST)/$(EXECUTABLE)_linux-amd64 \
+	$(DIST)/$(EXECUTABLE)_linux-arm-5 \
+	$(DIST)/$(EXECUTABLE)_linux-arm-6 \
+	$(DIST)/$(EXECUTABLE)_linux-arm-7 \
+	$(DIST)/$(EXECUTABLE)_linux-arm64 \
+	$(DIST)/$(EXECUTABLE)_linux-mips \
+	$(DIST)/$(EXECUTABLE)_linux-mips64 \
+	$(DIST)/$(EXECUTABLE)_linux-mipsle \
+	$(DIST)/$(EXECUTABLE)_linux-mips64le
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-386:
+$(DIST)/$(EXECUTABLE)_linux-386:
 	GOOS=linux GOARCH=386 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-amd64:
+$(DIST)/$(EXECUTABLE)_linux-amd64:
 	GOOS=linux GOARCH=amd64 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm-5:
+$(DIST)/$(EXECUTABLE)_linux-arm-5:
 	GOOS=linux GOARCH=arm GOARM=5 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm-6:
+$(DIST)/$(EXECUTABLE)_linux-arm-6:
 	GOOS=linux GOARCH=arm GOARM=6 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm-7:
+$(DIST)/$(EXECUTABLE)_linux-arm-7:
 	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-arm64:
+$(DIST)/$(EXECUTABLE)_linux-arm64:
 	GOOS=linux GOARCH=arm64 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mips:
+$(DIST)/$(EXECUTABLE)_linux-mips:
 	GOOS=linux GOARCH=mips $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mips64:
+$(DIST)/$(EXECUTABLE)_linux-mips64:
 	GOOS=linux GOARCH=mips64 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mipsle:
+$(DIST)/$(EXECUTABLE)_linux-mipsle:
 	GOOS=linux GOARCH=mipsle $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-linux-mips64le:
+$(DIST)/$(EXECUTABLE)_linux-mips64le:
 	GOOS=linux GOARCH=mips64le $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
 .PHONY: release-darwin
 release-darwin: $(DIST) \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-darwin-amd64 \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-darwin-arm64
+	$(DIST)/$(EXECUTABLE)_darwin-amd64 \
+	$(DIST)/$(EXECUTABLE)_darwin-arm64
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-darwin-amd64:
+$(DIST)/$(EXECUTABLE)_darwin-amd64:
 	GOOS=darwin GOARCH=amd64 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-darwin-arm64:
+$(DIST)/$(EXECUTABLE)_darwin-arm64:
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
 .PHONY: release-windows
 release-windows: $(DIST) \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-windows-4.0-386.exe \
-	$(DIST)/$(EXECUTABLE)-$(OUTPUT)-windows-4.0-amd64.exe
+	$(DIST)/$(EXECUTABLE)_windows-4.0-386.exe \
+	$(DIST)/$(EXECUTABLE)_windows-4.0-amd64.exe
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-windows-4.0-386.exe:
+$(DIST)/$(EXECUTABLE)_windows-4.0-386.exe:
 	GOOS=windows GOARCH=386 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
-$(DIST)/$(EXECUTABLE)-$(OUTPUT)-windows-4.0-amd64.exe:
+$(DIST)/$(EXECUTABLE)_windows-4.0-amd64.exe:
 	GOOS=windows GOARCH=amd64 $(GOBUILD) -v -tags '$(TAGS)' -ldflags '$(LDFLAGS)' -o $@ ./cmd/$(NAME)
 
 .PHONY: release-checksum

@@ -30,5 +30,5 @@ branches:
         strict: true
         contexts:
           - testing
-      enforce_admins: false
+      enforce_admins: true
 ...
