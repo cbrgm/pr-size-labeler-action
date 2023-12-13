@@ -19,7 +19,7 @@ inputs:
 
 runs:
   using: docker
-  image: 'docker://quay.io/cbrgm/pr-size-labeler-action:v1'
+  image: 'docker://ghcr.io/cbrgm/pr-size-labeler-action:v1'
   env:
     CONFIG_FILE_PATH: ${{ inputs.config_file_path }}
     GITHUB_EVENT_NAME: "pull_request"
