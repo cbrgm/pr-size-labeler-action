@@ -4,7 +4,9 @@
 
 [![GitHub release](https://img.shields.io/github/release/cbrgm/pr-size-labeler-action.svg)](https://github.com/cbrgm/pr-size-labeler-action)
 [![Go Report Card](https://goreportcard.com/badge/github.com/cbrgm/pr-size-labeler-action)](https://goreportcard.com/report/github.com/cbrgm/pr-size-labeler-action)
-[![test-and-build](https://github.com/cbrgm/pr-size-labeler-action/actions/workflows/build.yml/badge.svg)](https://github.com/cbrgm/pr-size-labeler-action/actions/workflows/build.yml)
+[![go-lint-test](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-lint-test.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-lint-test.yml)
+[![go-binaries](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-binaries.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-binaries.yml)
+[![container](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/container.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/container.yml)
 
 ## Workflow Usage
 
@@ -43,5 +45,8 @@ make build
 
 ## Contributing & License
 
-Feel free to submit changes! See the [Contributing Guide](https://github.com/cbrgm/contributing/blob/master/CONTRIBUTING.md). This project is open-source
-and is developed under the terms of the [Apache 2.0 License](https://github.com/cbrgm/pr-size-labeler-action/blob/master/LICENSE).
+Your contributions are highly welcomed and appreciated! If you're interested in enhancing this project, please refer to our detailed [Contributing Guide](https://github.com/cbrgm/pr-size-labeler-action/blob/main/CONTRIBUTING.md) for guidelines and best practices. This guide will assist you in understanding the process for submitting changes, setting up your development environment, and more.
+
+This project is a labor of love, developed in my free time and provided for free to the community. As an open-source initiative, it operates under the [Apache 2.0 License](https://github.com/cbrgm/pr-size-labeler-action/blob/main/LICENSE). This license grants you legal permission to use, modify, and distribute this software. Please review the license terms to understand your rights and responsibilities.
+
+Your involvement, whether through contributions, suggestions, or feedback, is essential for keeping this project vibrant and beneficial to all. Let's collaborate to make this tool even better!
