@@ -41,7 +41,6 @@ func (EnvArgs) Version() string {
 // Constants for default configuration and event names.
 const (
 	DefaultConfigPath = ".github/pull-request-size.yml"
-	EventPullRequest  = "pull_request"
 	ParamNameFiles    = "files"
 	ParamNameDiff     = "diff"
 )
@@ -116,7 +115,7 @@ func main() {
 	var args EnvArgs
 	arg.MustParse(&args)
 
-	if !isValidEvent(args.EventName) || !isValidRepoFormat(args.RepoName) {
+	if !isValidGitHubEventType(args.EventName) || !isValidRepoFormat(args.RepoName) {
 		return
 	}
 
@@ -138,13 +137,19 @@ func main() {
 	prProcessor.ProcessPullRequest()
 }
 
-// isValidEvent checks if the event name is a valid pull request event.
-func isValidEvent(eventName string) bool {
-	if eventName != EventPullRequest {
-		fmt.Println("Event is not a pull request, doing nothing")
-		return false
+// isValidGitHubEventType checks if the event name is a valid pull request event.
+func isValidGitHubEventType(eventName string) bool {
+	allowedEvents := map[string]bool{
+		"pull_request":        true,
+		"pull_request_target": true,
 	}
-	return true
+
+	if allowedEvents[strings.ToLower(eventName)] {
+		return true
+	}
+
+	fmt.Println("Event is not a valid pull request event, doing nothing")
+	return false
 }
 
 // isValidRepoFormat checks if the repository name follows the 'owner/repository' format.
