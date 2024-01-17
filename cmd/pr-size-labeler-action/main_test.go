@@ -75,6 +75,33 @@ func TestCalculateSizeAndDiff(t *testing.T) {
 	}
 }
 
+func TestIsValidGitHubEventType(t *testing.T) {
+	tests := []struct {
+		name      string
+		eventName string
+		want      bool
+	}{
+		{"Valid Event pull_request", "pull_request", true},
+		{"Valid Event pull_request_target", "pull_request_target", true},
+		{"Invalid Event empty", "", false},
+		{"Invalid Event random string", "random_event", false},
+		{"Invalid Event issue", "issue", false},
+		{"Invalid Event commit", "commit", false},
+		{"Invalid Event push", "push", false},
+		{"Invalid Event merge", "merge", false},
+		{"Invalid Event null", "null", false},
+		{"Invalid Event pull_request_closed", "pull_request_closed", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidGitHubEventType(tt.eventName); got != tt.want {
+				t.Errorf("isValidGitHubEventType(%v) = %v, want %v", tt.eventName, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGetSize(t *testing.T) {
 	// Define configuration entries for clarity
 	xsConfig := ConfigEntry{"xs", 10, 1, []string{"size/xs"}}
