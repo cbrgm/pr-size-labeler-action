@@ -8,6 +8,14 @@
 [![go-binaries](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-binaries.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-binaries.yml)
 [![container](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/container.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/container.yml)
 
+## Container Usage
+
+This action can be executed independently from workflows within a container. To do so, use the following command:
+
+```
+podman run --rm -it ghcr.io/cbrgm/pr-size-labeler-action:v1 --help
+```
+
 ## Workflow Usage
 
 Before using this action, ensure you have a [`.github/pull-request-size.yml`](.github/pull-request-size.yml) configuration file in your repository. This file should define the size thresholds and corresponding labels.
@@ -86,6 +94,36 @@ You can build this action from source using `Go`:
 
 ```bash
 make build
+```
+
+#### High-Level Functionality
+
+```mermaid
+sequenceDiagram
+    participant GitHubAction as pr-size-labeler-action
+    participant GitHubAPI
+
+    Note over GitHubAction, GitHubAPI: GitHub Action: Pull Request Size Labeler
+
+    GitHubAction->>GitHubAPI: Initialize GitHub Client
+    activate GitHubAPI
+    GitHubAPI-->>GitHubAction: Client Initialized
+    deactivate GitHubAPI
+
+    GitHubAction->>GitHubAPI: Fetch PR Files
+    activate GitHubAPI
+    GitHubAPI-->>GitHubAction: PR Files Returned
+    deactivate GitHubAPI
+
+    GitHubAction->>GitHubAction: Calculate Size and Diff
+
+    GitHubAction->>GitHubAPI: Update PR Labels
+    activate GitHubAPI
+    GitHubAPI-->>GitHubAction: PR Labels Updated
+    deactivate GitHubAPI
+
+    GitHubAction->>GitHubAction: Action Completed
+
 ```
 
 ## Contributing & License
