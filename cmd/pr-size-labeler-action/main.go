@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/alexflint/go-arg"
-	"github.com/google/go-github/v69/github"
+	"github.com/google/go-github/v70/github"
 	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 )
