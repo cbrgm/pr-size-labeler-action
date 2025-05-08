@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/google/go-github/v71/github"
+	"github.com/google/go-github/v72/github"
 )
 
 func TestCalculateSizeAndDiff(t *testing.T) {
