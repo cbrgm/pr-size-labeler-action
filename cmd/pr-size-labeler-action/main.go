@@ -55,8 +55,9 @@ type ConfigEntry struct {
 
 // Config struct holds the entire configuration for label assignment.
 type Config struct {
-	ExcludeFiles []string      `yaml:"exclude_files"`
-	LabelConfigs []ConfigEntry `yaml:"label_configs"`
+	ExcludeFiles   []string      `yaml:"exclude_files"`
+	LabelConfigs   []ConfigEntry `yaml:"label_configs"`
+	AddedLinesOnly bool          `yaml:"added_lines_only"`
 }
 
 // GitHubClientWrapper wraps the GitHub client for ease of testing and abstraction.
@@ -102,7 +103,8 @@ func (prp *PullRequestProcessor) ProcessPullRequest() {
 		return
 	}
 
-	size, diff := calculateSizeAndDiff(files, prp.config)
+	numberOfFiles, numberOfLines := calculateSizeAndDiff(files, prp.config)
+	size, diff := mapNumberOfChangesToSize(numberOfFiles, numberOfLines, prp.config)
 	biggestEntry := getBiggestEntry(prp.config.LabelConfigs, size, diff)
 
 	err = prp.updatePullRequestLabel(biggestEntry)
@@ -244,14 +246,27 @@ func labelExists(pr *github.PullRequest, labelName string) bool {
 }
 
 // calculateSizeAndDiff calculates the size and diff for the pull request.
-func calculateSizeAndDiff(files []*github.CommitFile, config Config) (ConfigEntry, ConfigEntry) {
+func calculateSizeAndDiff(files []*github.CommitFile, config Config) (int, int) {
 	numberOfFiles, numberOfLines := 0, 0
 	for _, file := range files {
+		if config.AddedLinesOnly && file.GetStatus() == "removed" {
+			continue
+		}
+
 		if !shouldExcludeFile(file.GetFilename(), config.ExcludeFiles) {
 			numberOfFiles++
-			numberOfLines += file.GetChanges()
+
+			if config.AddedLinesOnly {
+				numberOfLines += file.GetAdditions()
+			} else {
+				numberOfLines += file.GetChanges()
+			}
 		}
 	}
+	return numberOfFiles, numberOfLines
+}
+
+func mapNumberOfChangesToSize(numberOfFiles int, numberOfLines int, config Config) (ConfigEntry, ConfigEntry) {
 	size := getSize(config.LabelConfigs, numberOfFiles, ParamNameFiles)
 	diff := getSize(config.LabelConfigs, numberOfLines, ParamNameDiff)
 	return size, diff

@@ -6,7 +6,7 @@ import (
 	"github.com/google/go-github/v72/github"
 )
 
-func TestCalculateSizeAndDiff(t *testing.T) {
+func TestMapSizeAndDiff(t *testing.T) {
 	// Define the configuration separately for clarity
 	xsConfig := ConfigEntry{"xs", 10, 1, []string{"size/xs"}}
 	sConfig := ConfigEntry{"s", 50, 10, []string{"size/s"}}
@@ -36,8 +36,8 @@ func TestCalculateSizeAndDiff(t *testing.T) {
 		{
 			"Files within 'small' thresholds",
 			[]*github.CommitFile{
-				mockCommitFile("file1.go", 5),
-				mockCommitFile("file2.go", 10),
+				mockCommitFile("file1.go", "added", 5, 5),
+				mockCommitFile("file2.go", "modified", 10, 8),
 			},
 			config,
 			sConfig,
@@ -46,8 +46,8 @@ func TestCalculateSizeAndDiff(t *testing.T) {
 		{
 			"Files exceeding 'small' but within 'medium' thresholds",
 			[]*github.CommitFile{
-				mockCommitFile("file1.go", 30),
-				mockCommitFile("file2.go", 70),
+				mockCommitFile("file1.go", "modified", 30, 20),
+				mockCommitFile("file2.go", "modified", 70, 60),
 			},
 			config,
 			sConfig,
@@ -56,8 +56,8 @@ func TestCalculateSizeAndDiff(t *testing.T) {
 		{
 			"Files with one excluded file",
 			[]*github.CommitFile{
-				mockCommitFile("exclude.txt", 100),
-				mockCommitFile("file2.go", 20),
+				mockCommitFile("exclude.txt", "modified", 100, 90),
+				mockCommitFile("file2.go", "modified", 20, 10),
 			},
 			config,
 			xsConfig,
@@ -67,9 +67,97 @@ func TestCalculateSizeAndDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotSize, gotDiff := calculateSizeAndDiff(tt.files, tt.config)
+			numberOfFiles, numberOfLines := calculateSizeAndDiff(tt.files, tt.config)
+			gotSize, gotDiff := mapNumberOfChangesToSize(numberOfFiles, numberOfLines, tt.config)
 			if !configEntriesAreEqual(gotSize, tt.wantSize) || !configEntriesAreEqual(gotDiff, tt.wantDiff) {
 				t.Errorf("calculateSizeAndDiff() = size: %v, diff: %v, want size: %v, want diff: %v", gotSize, gotDiff, tt.wantSize, tt.wantDiff)
+			}
+		})
+	}
+}
+
+func TestCalculateSizeAndDiff(t *testing.T) {
+	configDefault := Config{
+		ExcludeFiles:   []string{"exclude.*"},
+		LabelConfigs:   []ConfigEntry{},
+		AddedLinesOnly: false,
+	}
+
+	configAddedLinesOnly := Config{
+		ExcludeFiles:   []string{"exclude.*"},
+		LabelConfigs:   []ConfigEntry{},
+		AddedLinesOnly: true,
+	}
+
+	tests := []struct {
+		name              string
+		files             []*github.CommitFile
+		config            Config
+		wantNumberOfFiles int
+		wantNumberOfLines int
+	}{
+		{
+			"No files should return 0 for everything",
+			[]*github.CommitFile{},
+			configDefault,
+			0,
+			0,
+		},
+		{
+			"No files should return 0 for everything with added lines only",
+			[]*github.CommitFile{},
+			configAddedLinesOnly,
+			0,
+			0,
+		},
+		{
+			"Files with an excluded file",
+			[]*github.CommitFile{
+				mockCommitFile("exclude.txt", "modified", 100, 90),
+				mockCommitFile("file2.go", "modified", 20, 10),
+			},
+			configDefault,
+			1,
+			20,
+		},
+		{
+			"Files with an excluded file with added lines only",
+			[]*github.CommitFile{
+				mockCommitFile("exclude.txt", "modified", 100, 90),
+				mockCommitFile("file2.go", "modified", 20, 10),
+			},
+			configAddedLinesOnly,
+			1,
+			10,
+		},
+		{
+			"A deleted file should not count towards the size",
+			[]*github.CommitFile{
+				mockCommitFile("file1.go", "removed", 50, 0),
+				mockCommitFile("file2.go", "modified", 30, 25),
+				mockCommitFile("file3.go", "modified", 40, 35),
+			},
+			configAddedLinesOnly,
+			2,
+			60,
+		},
+		{
+			"A modified file with only deletions should still count towards the number of files",
+			[]*github.CommitFile{
+				mockCommitFile("file2.go", "modified", 30, 0),
+				mockCommitFile("file3.go", "modified", 40, 35),
+			},
+			configAddedLinesOnly,
+			2,
+			35,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotNumberOfFiles, gotNumberOfLines := calculateSizeAndDiff(tt.files, tt.config)
+			if gotNumberOfFiles != tt.wantNumberOfFiles || gotNumberOfLines != tt.wantNumberOfLines {
+				t.Errorf("calculateSizeAndDiff() = files: %d, want files: %d, lines: %d, want lines: %d", gotNumberOfFiles, tt.wantNumberOfFiles, gotNumberOfLines, tt.wantNumberOfLines)
 			}
 		})
 	}
@@ -312,10 +400,12 @@ func configEntriesAreEqual(a, b ConfigEntry) bool {
 	return true
 }
 
-func mockCommitFile(filename string, changes int) *github.CommitFile {
+func mockCommitFile(filename string, status string, changes int, additions int) *github.CommitFile {
 	return &github.CommitFile{
-		Filename: &filename,
-		Changes:  &changes,
+		Filename:  &filename,
+		Status:    &status,
+		Changes:   &changes,
+		Additions: &additions,
 	}
 }
 
