@@ -86,6 +86,10 @@ label_configs:
     diff: 5000
     files: 100
     labels: ["size/xl", "pairing-wanted"]
+
+# In case you don't want to count deleted lines and files into
+# your size labels, you can change this to true:
+added_lines_only: false
 ```
 
 ### Local Development
