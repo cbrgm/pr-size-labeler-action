@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -266,7 +267,7 @@ func calculateSizeAndDiff(files []*github.CommitFile, config Config) (int, int) 
 	return numberOfFiles, numberOfLines
 }
 
-func mapNumberOfChangesToSize(numberOfFiles int, numberOfLines int, config Config) (ConfigEntry, ConfigEntry) {
+func mapNumberOfChangesToSize(numberOfFiles, numberOfLines int, config Config) (ConfigEntry, ConfigEntry) {
 	size := getSize(config.LabelConfigs, numberOfFiles, ParamNameFiles)
 	diff := getSize(config.LabelConfigs, numberOfLines, ParamNameDiff)
 	return size, diff
@@ -377,10 +378,5 @@ func exitOnError(action string, err error) {
 
 // contains checks if a slice of strings contains a given string.
 func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }
