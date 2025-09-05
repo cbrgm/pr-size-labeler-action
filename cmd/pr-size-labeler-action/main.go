@@ -68,7 +68,7 @@ type GitHubClientWrapper struct {
 }
 
 // NewGitHubClientWrapper creates a new wrapper for the GitHub client.
-func NewGitHubClientWrapper(token string, gitHubEnterpriseUrl string) *GitHubClientWrapper {
+func NewGitHubClientWrapper(token, gitHubEnterpriseUrl string) *GitHubClientWrapper {
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
