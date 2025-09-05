@@ -16,6 +16,9 @@ inputs:
   config_file_path:
     description: 'The path to the configuration file'
     required: false
+  github_enterprise_url:
+    description: 'The base URL for GitHub Enterprise (if applicable)'
+    required: false
 
 runs:
   using: docker
@@ -26,6 +29,7 @@ runs:
     GITHUB_REPOSITORY: ${{ inputs.github_repository }}
     GITHUB_TOKEN: ${{ inputs.github_token }}
     PULL_REQUEST_NUMBER: ${{ inputs.github_pr_number }}
+    GITHUB_ENTERPRISE_URL: ${{ inputs.github_enterprise_url }}
 
 branding:
   icon: bar-chart
