@@ -41,6 +41,31 @@ jobs:
           github_repository: ${{ github.repository }} # Pass the repository name
           github_pr_number: ${{ github.event.number }} # Pass the pull request number
           config_file_path: '.github/pull-request-size.yml' # Specify the path to the configuration file
+          github_enterprise_url: '' # Optional: GitHub Enterprise URL (e.g., https://github.mycompany.com)
+```
+
+## Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `github_token` | GitHub token to authenticate with | Yes | - |
+| `github_repository` | The name of the repository in format owner/repository | Yes | - |
+| `github_pr_number` | The number of your pull request | Yes | - |
+| `config_file_path` | The path to the configuration file | No | `.github/pull-request-size.yml` |
+| `github_enterprise_url` | The base URL for GitHub Enterprise (if applicable) | No | - |
+
+### GitHub Enterprise Support
+
+For GitHub Enterprise instances, specify the base URL of your GitHub Enterprise server:
+
+```yaml
+- name: Label PR based on size
+  uses: cbrgm/pr-size-labeler-action@main
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    github_repository: ${{ github.repository }}
+    github_pr_number: ${{ github.event.number }}
+    github_enterprise_url: 'https://github.mycompany.com'
 ```
 
 ## Example Config

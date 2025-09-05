@@ -27,11 +27,12 @@ var (
 
 // EnvArgs struct holds the required environment variables.
 type EnvArgs struct {
-	GithubToken    string `arg:"env:GITHUB_TOKEN,required"`
-	EventName      string `arg:"env:GITHUB_EVENT_NAME,required"`
-	PrNumber       string `arg:"env:PULL_REQUEST_NUMBER,required"`
-	RepoName       string `arg:"env:GITHUB_REPOSITORY,required"`
-	ConfigFilePath string `arg:"env:CONFIG_FILE_PATH"`
+	GithubToken         string `arg:"env:GITHUB_TOKEN,required"`
+	EventName           string `arg:"env:GITHUB_EVENT_NAME,required"`
+	PrNumber            string `arg:"env:PULL_REQUEST_NUMBER,required"`
+	RepoName            string `arg:"env:GITHUB_REPOSITORY,required"`
+	ConfigFilePath      string `arg:"env:CONFIG_FILE_PATH"`
+	GitHubEnterpriseUrl string `arg:"env:GITHUB_ENTERPRISE_URL"`
 }
 
 // Version returns a formatted string with application version details.
@@ -67,11 +68,23 @@ type GitHubClientWrapper struct {
 }
 
 // NewGitHubClientWrapper creates a new wrapper for the GitHub client.
-func NewGitHubClientWrapper(token string) *GitHubClientWrapper {
+func NewGitHubClientWrapper(token, gitHubEnterpriseUrl string) *GitHubClientWrapper {
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
-	return &GitHubClientWrapper{client: github.NewClient(tc)}
+	client := github.NewClient(tc)
+
+	// Configure GitHub Enterprise URL if provided
+	if gitHubEnterpriseUrl != "" {
+		var err error
+		client, err = client.WithEnterpriseURLs(gitHubEnterpriseUrl, gitHubEnterpriseUrl)
+		if err != nil {
+			fmt.Printf("Failed to set GitHub Enterprise URLs: %v\n", err)
+			// Continue with regular GitHub client if enterprise URL setup fails
+		}
+	}
+
+	return &GitHubClientWrapper{client: client}
 }
 
 // PullRequestProcessor handles the processing of a single pull request.
@@ -135,7 +148,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	clientWrapper := NewGitHubClientWrapper(args.GithubToken)
+	clientWrapper := NewGitHubClientWrapper(args.GithubToken, args.GitHubEnterpriseUrl)
 	prProcessor := NewPullRequestProcessor(ctx, clientWrapper, parseRepoOwner(args.RepoName), parseRepoName(args.RepoName), prNumber, config)
 	prProcessor.ProcessPullRequest()
 }
