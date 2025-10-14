@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/google/go-github/v75/github"
+	"github.com/google/go-github/v76/github"
 )
 
 func TestMapSizeAndDiff(t *testing.T) {
