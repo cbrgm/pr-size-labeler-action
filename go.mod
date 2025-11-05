@@ -2,7 +2,7 @@ module github.com/cbrgm/pr-size-labeler-action
 
 go 1.24.0
 
-toolchain go1.25.3
+toolchain go1.25.4
 
 require (
 	github.com/alexflint/go-arg v1.6.0
