@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/alexflint/go-arg"
-	"github.com/google/go-github/v86/github"
+	"github.com/google/go-github/v88/github"
 	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 )
@@ -72,16 +72,16 @@ func NewGitHubClientWrapper(token, gitHubEnterpriseUrl string) *GitHubClientWrap
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
 
-	// Configure GitHub Enterprise URL if provided
+	opts := []github.ClientOptionsFunc{github.WithHTTPClient(tc)}
 	if gitHubEnterpriseUrl != "" {
-		var err error
-		client, err = client.WithEnterpriseURLs(gitHubEnterpriseUrl, gitHubEnterpriseUrl)
-		if err != nil {
-			fmt.Printf("Failed to set GitHub Enterprise URLs: %v\n", err)
-			// Continue with regular GitHub client if enterprise URL setup fails
-		}
+		opts = append(opts, github.WithEnterpriseURLs(gitHubEnterpriseUrl, gitHubEnterpriseUrl))
+	}
+
+	client, err := github.NewClient(opts...)
+	if err != nil {
+		fmt.Printf("Failed to create GitHub client: %v\n", err)
+		os.Exit(1)
 	}
 
 	return &GitHubClientWrapper{client: client}
