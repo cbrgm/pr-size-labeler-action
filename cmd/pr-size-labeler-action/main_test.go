@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/google/go-github/v89/github"
+	"github.com/google/go-github/v90/github"
 )
 
 func TestMapSizeAndDiff(t *testing.T) {
@@ -438,8 +438,7 @@ func TestIsSizeLabel(t *testing.T) {
 func mockPullRequest(labels ...string) *github.PullRequest {
 	var githubLabels []*github.Label
 	for _, l := range labels {
-		label := l // Create a new variable to hold the label name
-		githubLabels = append(githubLabels, &github.Label{Name: &label})
+		githubLabels = append(githubLabels, &github.Label{Name: l})
 	}
 
 	return &github.PullRequest{Labels: githubLabels}
