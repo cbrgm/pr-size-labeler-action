@@ -2,18 +2,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/alexflint/go-arg"
 	"github.com/google/go-github/v90/github"
-	"golang.org/x/oauth2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,7 +34,7 @@ type EnvArgs struct {
 	PrNumber            string `arg:"env:PULL_REQUEST_NUMBER,required"`
 	RepoName            string `arg:"env:GITHUB_REPOSITORY,required"`
 	ConfigFilePath      string `arg:"env:CONFIG_FILE_PATH"`
-	GitHubEnterpriseUrl string `arg:"env:GITHUB_ENTERPRISE_URL"`
+	GitHubEnterpriseURL string `arg:"env:GITHUB_ENTERPRISE_URL"`
 }
 
 // Version returns a formatted string with application version details.
@@ -43,8 +45,6 @@ func (EnvArgs) Version() string {
 // Constants for default configuration and event names.
 const (
 	DefaultConfigPath = ".github/pull-request-size.yml"
-	ParamNameFiles    = "files"
-	ParamNameDiff     = "diff"
 
 	// maxFilesPerPage is the largest page size the GitHub API accepts for
 	// listing pull request files.
@@ -66,29 +66,34 @@ type Config struct {
 	AddedLinesOnly bool          `yaml:"added_lines_only"`
 }
 
+// thresholdFunc reads the threshold a ConfigEntry defines for one of the two
+// size axes.
+type thresholdFunc func(ConfigEntry) int
+
+// filesThreshold returns the file count threshold of an entry.
+func filesThreshold(entry ConfigEntry) int { return entry.Files }
+
+// diffThreshold returns the changed lines threshold of an entry.
+func diffThreshold(entry ConfigEntry) int { return entry.Diff }
+
 // GitHubClientWrapper wraps the GitHub client for ease of testing and abstraction.
 type GitHubClientWrapper struct {
 	client *github.Client
 }
 
 // NewGitHubClientWrapper creates a new wrapper for the GitHub client.
-func NewGitHubClientWrapper(token, gitHubEnterpriseUrl string) *GitHubClientWrapper {
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(ctx, ts)
-
-	opts := []github.ClientOptionsFunc{github.WithHTTPClient(tc)}
-	if gitHubEnterpriseUrl != "" {
-		opts = append(opts, github.WithEnterpriseURLs(gitHubEnterpriseUrl, gitHubEnterpriseUrl))
+func NewGitHubClientWrapper(token, gitHubEnterpriseURL string) (*GitHubClientWrapper, error) {
+	opts := []github.ClientOptionsFunc{github.WithAuthToken(token)}
+	if gitHubEnterpriseURL != "" {
+		opts = append(opts, github.WithEnterpriseURLs(gitHubEnterpriseURL, gitHubEnterpriseURL))
 	}
 
 	client, err := github.NewClient(opts...)
 	if err != nil {
-		fmt.Printf("Failed to create GitHub client: %v\n", err)
-		os.Exit(1)
+		return nil, err
 	}
 
-	return &GitHubClientWrapper{client: client}
+	return &GitHubClientWrapper{client: client}, nil
 }
 
 // PullRequestProcessor handles the processing of a single pull request.
@@ -114,62 +119,70 @@ func NewPullRequestProcessor(ctx context.Context, clientWrapper *GitHubClientWra
 }
 
 // ProcessPullRequest processes the files of a pull request and applies labels accordingly.
-func (prp *PullRequestProcessor) ProcessPullRequest() {
+func (prp *PullRequestProcessor) ProcessPullRequest() error {
 	files, err := prp.fetchPullRequestFiles()
 	if err != nil {
-		exitOnError("fetching pull request files", err)
-		return
+		return fmt.Errorf("fetching pull request files: %w", err)
 	}
 
 	numberOfFiles, numberOfLines := calculateSizeAndDiff(files, prp.config)
 	size, diff := mapNumberOfChangesToSize(numberOfFiles, numberOfLines, prp.config)
 	biggestEntry := getBiggestEntry(prp.config.LabelConfigs, size, diff)
 
-	err = prp.updatePullRequestLabel(biggestEntry)
-	if err != nil {
-		exitOnError("updating pull request label", err)
+	if err := prp.updatePullRequestLabel(biggestEntry); err != nil {
+		return fmt.Errorf("updating pull request label: %w", err)
 	}
+
+	return nil
 }
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// run wires everything together and reports the first error it hits.
+func run() error {
 	var args EnvArgs
 	arg.MustParse(&args)
 
 	if !isValidGitHubEventType(args.EventName) || !isValidRepoFormat(args.RepoName) {
-		return
+		return nil
 	}
 
 	prNumber, err := strconv.Atoi(args.PrNumber)
 	if err != nil {
-		exitOnError("parsing pull request number", err)
-		return
+		return fmt.Errorf("parsing pull request number %q: %w", args.PrNumber, err)
 	}
 
 	config, err := loadConfig(getConfigFilePath(args.ConfigFilePath))
 	if err != nil {
-		exitOnError("loading configuration", err)
-		return
+		return fmt.Errorf("loading configuration: %w", err)
 	}
 
-	ctx := context.Background()
-	clientWrapper := NewGitHubClientWrapper(args.GithubToken, args.GitHubEnterpriseUrl)
-	prProcessor := NewPullRequestProcessor(ctx, clientWrapper, parseRepoOwner(args.RepoName), parseRepoName(args.RepoName), prNumber, config)
-	prProcessor.ProcessPullRequest()
+	clientWrapper, err := NewGitHubClientWrapper(args.GithubToken, args.GitHubEnterpriseURL)
+	if err != nil {
+		return fmt.Errorf("creating GitHub client: %w", err)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	processor := NewPullRequestProcessor(ctx, clientWrapper, parseRepoOwner(args.RepoName), parseRepoName(args.RepoName), prNumber, config)
+	return processor.ProcessPullRequest()
 }
 
 // isValidGitHubEventType checks if the event name is a valid pull request event.
 func isValidGitHubEventType(eventName string) bool {
-	allowedEvents := map[string]bool{
-		"pull_request":        true,
-		"pull_request_target": true,
-	}
-
-	if allowedEvents[strings.ToLower(eventName)] {
+	switch strings.ToLower(eventName) {
+	case "pull_request", "pull_request_target":
 		return true
+	default:
+		fmt.Println("Event is not a valid pull request event, doing nothing")
+		return false
 	}
-
-	fmt.Println("Event is not a valid pull request event, doing nothing")
-	return false
 }
 
 // isValidRepoFormat checks if the repository name follows the 'owner/repository' format.
@@ -189,15 +202,44 @@ func getConfigFilePath(providedPath string) string {
 	return providedPath
 }
 
-// loadConfig loads the configuration from the YAML file.
+// loadConfig loads and validates the configuration from the YAML file.
 func loadConfig(filePath string) (Config, error) {
 	var config Config
+
 	yamlFile, err := os.ReadFile(filePath)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("reading %s: %w", filePath, err)
 	}
-	err = yaml.Unmarshal(yamlFile, &config)
-	return config, err
+
+	if err := yaml.Unmarshal(yamlFile, &config); err != nil {
+		return config, fmt.Errorf("parsing %s: %w", filePath, err)
+	}
+
+	if err := validateConfig(config); err != nil {
+		return config, fmt.Errorf("invalid configuration in %s: %w", filePath, err)
+	}
+
+	return config, nil
+}
+
+// validateConfig checks that the configuration can actually be used to pick a
+// label, so a malformed file fails with a readable message instead of a panic
+// further down.
+func validateConfig(config Config) error {
+	if len(config.LabelConfigs) == 0 {
+		return errors.New("label_configs must contain at least one entry")
+	}
+
+	for i, entry := range config.LabelConfigs {
+		if entry.Size == "" {
+			return fmt.Errorf("label_configs[%d]: size must not be empty", i)
+		}
+		if len(entry.Labels) == 0 {
+			return fmt.Errorf("label_configs[%d] (%s): labels must not be empty", i, entry.Size)
+		}
+	}
+
+	return nil
 }
 
 // fetchPullRequestFiles fetches the list of files in a pull request, following
@@ -225,57 +267,55 @@ func (prp *PullRequestProcessor) fetchPullRequestFiles() ([]*github.CommitFile, 
 func (prp *PullRequestProcessor) updatePullRequestLabel(entry ConfigEntry) error {
 	pr, _, err := prp.clientWrapper.client.PullRequests.Get(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber)
 	if err != nil {
+		return fmt.Errorf("fetching pull request: %w", err)
+	}
+
+	if err := prp.removeOtherSizeLabels(pr, entry); err != nil {
 		return err
 	}
 
-	err = removeOtherSizeLabels(prp.ctx, prp.clientWrapper.client, prp.repoOwner, prp.repoName, prp.prNumber, pr, prp.config, entry)
-	if err != nil {
-		return err
+	missing := slices.DeleteFunc(slices.Clone(entry.Labels), func(label string) bool {
+		return labelExists(pr, label)
+	})
+	if len(missing) == 0 {
+		return nil
 	}
 
-	for _, label := range entry.Labels {
-		labelExists := labelExists(pr, label)
-		if !labelExists {
-			_, _, err = prp.clientWrapper.client.Issues.AddLabelsToIssue(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber, []string{label})
-			if err != nil {
-				return err
-			}
-		}
+	if _, _, err := prp.clientWrapper.client.Issues.AddLabelsToIssue(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber, missing); err != nil {
+		return fmt.Errorf("adding labels %v: %w", missing, err)
 	}
+
 	return nil
 }
 
 // removeOtherSizeLabels removes labels that are different from the current size labels.
-func removeOtherSizeLabels(ctx context.Context, client *github.Client, repoOwner, repoName string, prNumber int, pr *github.PullRequest, config Config, entry ConfigEntry) error {
+func (prp *PullRequestProcessor) removeOtherSizeLabels(pr *github.PullRequest, entry ConfigEntry) error {
 	for _, label := range pr.Labels {
-		if isSizeLabel(label.GetName(), config.LabelConfigs) && !contains(entry.Labels, label.GetName()) {
-			_, err := client.Issues.RemoveLabelForIssue(ctx, repoOwner, repoName, prNumber, label.GetName())
-			if err != nil {
-				return err
-			}
+		name := label.GetName()
+		if !isSizeLabel(name, prp.config.LabelConfigs) || slices.Contains(entry.Labels, name) {
+			continue
+		}
+
+		if _, err := prp.clientWrapper.client.Issues.RemoveLabelForIssue(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber, name); err != nil {
+			return fmt.Errorf("removing label %q: %w", name, err)
 		}
 	}
+
 	return nil
 }
 
 // isSizeLabel checks if a label is a size label.
 func isSizeLabel(labelName string, labelConfigs []ConfigEntry) bool {
-	for _, configLabel := range labelConfigs {
-		if contains(configLabel.Labels, labelName) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(labelConfigs, func(entry ConfigEntry) bool {
+		return slices.Contains(entry.Labels, labelName)
+	})
 }
 
 // labelExists checks if a label already exists on a pull request.
 func labelExists(pr *github.PullRequest, labelName string) bool {
-	for _, label := range pr.Labels {
-		if label.GetName() == labelName {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(pr.Labels, func(label *github.Label) bool {
+		return label.GetName() == labelName
+	})
 }
 
 // calculateSizeAndDiff calculates the size and diff for the pull request.
@@ -286,29 +326,33 @@ func calculateSizeAndDiff(files []*github.CommitFile, config Config) (int, int) 
 			continue
 		}
 
-		if !shouldExcludeFile(file.GetFilename(), config.ExcludeFiles) {
-			numberOfFiles++
+		if shouldExcludeFile(file.GetFilename(), config.ExcludeFiles) {
+			continue
+		}
 
-			if config.AddedLinesOnly {
-				numberOfLines += file.GetAdditions()
-			} else {
-				numberOfLines += file.GetChanges()
-			}
+		numberOfFiles++
+		if config.AddedLinesOnly {
+			numberOfLines += file.GetAdditions()
+		} else {
+			numberOfLines += file.GetChanges()
 		}
 	}
 	return numberOfFiles, numberOfLines
 }
 
 func mapNumberOfChangesToSize(numberOfFiles, numberOfLines int, config Config) (ConfigEntry, ConfigEntry) {
-	size := getSize(config.LabelConfigs, numberOfFiles, ParamNameFiles)
-	diff := getSize(config.LabelConfigs, numberOfLines, ParamNameDiff)
+	size := getSize(config.LabelConfigs, numberOfFiles, filesThreshold)
+	diff := getSize(config.LabelConfigs, numberOfLines, diffThreshold)
 	return size, diff
 }
 
 // shouldExcludeFile checks if a file should be excluded based on the configuration.
 func shouldExcludeFile(filename string, patterns []string) bool {
+	justFileName := filepath.Base(filename)
+
 	for _, pattern := range patterns {
-		// Check against the full path
+		// Check against the full path. filepath.Match only ever fails on a
+		// malformed pattern, so warning once per pattern is enough.
 		matched, err := filepath.Match(pattern, filename)
 		if err != nil {
 			fmt.Printf("Invalid pattern %s: %s\n", pattern, err)
@@ -318,52 +362,34 @@ func shouldExcludeFile(filename string, patterns []string) bool {
 			return true
 		}
 
-		// Extract just the file name and check the pattern again
-		justFileName := filepath.Base(filename)
-		matched, err = filepath.Match(pattern, justFileName)
-		if err != nil {
-			fmt.Printf("Invalid pattern %s: %s\n", pattern, err)
-			continue
-		}
-		if matched {
+		// Check the pattern against the file name alone.
+		if matched, _ := filepath.Match(pattern, justFileName); matched {
 			return true
 		}
 
-		// Check if the pattern specifies a directory and matches the beginning of the filename
-		if strings.HasSuffix(pattern, "/*") {
-			dirPattern := filepath.Dir(pattern)
-			if strings.HasPrefix(filename, dirPattern) {
-				return true
-			}
+		// A trailing "/*" excludes the directory recursively, which filepath.Match
+		// cannot express because its wildcards never cross a separator.
+		if dir, ok := strings.CutSuffix(pattern, "/*"); ok && strings.HasPrefix(filename, dir+"/") {
+			return true
 		}
 	}
 	return false
 }
 
 // getSize retrieves the size configuration based on the number of files or diffs.
-func getSize(configuration []ConfigEntry, currentCount int, paramName string) ConfigEntry {
-	for _, entry := range configuration {
-		var entryValue int
-		switch paramName {
-		case ParamNameFiles:
-			entryValue = entry.Files
-		case ParamNameDiff:
-			entryValue = entry.Diff
-		}
-
-		if currentCount <= entryValue {
-			return entry
-		}
+func getSize(configuration []ConfigEntry, currentCount int, threshold thresholdFunc) ConfigEntry {
+	i := slices.IndexFunc(configuration, func(entry ConfigEntry) bool {
+		return currentCount <= threshold(entry)
+	})
+	if i >= 0 {
+		return configuration[i]
 	}
 	return configuration[len(configuration)-1]
 }
 
 // getBiggestEntry determines the largest entry between two ConfigEntry objects based on the user-defined order.
 func getBiggestEntry(configEntries []ConfigEntry, size, diff ConfigEntry) ConfigEntry {
-	sizeIndex := findConfigEntryIndex(configEntries, size.Size)
-	diffIndex := findConfigEntryIndex(configEntries, diff.Size)
-
-	if sizeIndex >= diffIndex {
+	if findConfigEntryIndex(configEntries, size.Size) >= findConfigEntryIndex(configEntries, diff.Size) {
 		return size
 	}
 	return diff
@@ -371,18 +397,15 @@ func getBiggestEntry(configEntries []ConfigEntry, size, diff ConfigEntry) Config
 
 // findConfigEntryIndex finds the index of a ConfigEntry in the configuration based on size.
 func findConfigEntryIndex(entries []ConfigEntry, size string) int {
-	for i, entry := range entries {
-		if entry.Size == size {
-			return i
-		}
-	}
-	return -1
+	return slices.IndexFunc(entries, func(entry ConfigEntry) bool {
+		return entry.Size == size
+	})
 }
 
 // parseRepoOwner extracts the repository owner from the full repository name.
 func parseRepoOwner(repoName string) string {
-	parts := strings.Split(repoName, "/")
-	return parts[0]
+	owner, _, _ := strings.Cut(repoName, "/")
+	return owner
 }
 
 // parseRepoName extracts the repository name from the full repository name.
@@ -398,17 +421,4 @@ func parseRepoName(repoName string) string {
 func isValidRepoNameFormat(repoName string) bool {
 	parts := strings.Split(repoName, "/")
 	return len(parts) == 2 && parts[0] != "" && parts[1] != ""
-}
-
-// exitOnError terminates the program if an error is encountered.
-func exitOnError(action string, err error) {
-	if err != nil {
-		fmt.Printf("Error %s: %v\n", action, err)
-		os.Exit(1)
-	}
-}
-
-// contains checks if a slice of strings contains a given string.
-func contains(slice []string, item string) bool {
-	return slices.Contains(slice, item)
 }

@@ -211,25 +211,25 @@ func TestGetSize(t *testing.T) {
 		name          string
 		configuration []ConfigEntry
 		currentCount  int
-		paramName     string
+		threshold     thresholdFunc
 		want          ConfigEntry
 	}{
 		// Tests for file count
-		{"Fewer files than XS threshold", configuration, 0, ParamNameFiles, xsConfig},
-		{"Files equal to S threshold", configuration, 10, ParamNameFiles, sConfig},
-		{"Files between S and M thresholds", configuration, 15, ParamNameFiles, mConfig},
-		{"More files than XL threshold", configuration, 105, ParamNameFiles, xlConfig},
+		{"Fewer files than XS threshold", configuration, 0, filesThreshold, xsConfig},
+		{"Files equal to S threshold", configuration, 10, filesThreshold, sConfig},
+		{"Files between S and M thresholds", configuration, 15, filesThreshold, mConfig},
+		{"More files than XL threshold", configuration, 105, filesThreshold, xlConfig},
 
 		// Tests for diff count
-		{"Fewer changes than XS threshold", configuration, 5, ParamNameDiff, xsConfig},
-		{"Changes equal to M threshold", configuration, 100, ParamNameDiff, mConfig},
-		{"Changes between S and M thresholds", configuration, 35, ParamNameDiff, sConfig},
-		{"More changes than XL threshold", configuration, 1500, ParamNameDiff, xlConfig},
+		{"Fewer changes than XS threshold", configuration, 5, diffThreshold, xsConfig},
+		{"Changes equal to M threshold", configuration, 100, diffThreshold, mConfig},
+		{"Changes between S and M thresholds", configuration, 35, diffThreshold, sConfig},
+		{"More changes than XL threshold", configuration, 1500, diffThreshold, xlConfig},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getSize(tt.configuration, tt.currentCount, tt.paramName)
+			got := getSize(tt.configuration, tt.currentCount, tt.threshold)
 			if !configEntriesAreEqual(got, tt.want) {
 				t.Errorf("getSize() = %v, want %v", got, tt.want)
 			}
@@ -370,41 +370,8 @@ func TestIsValidRepoNameFormat(t *testing.T) {
 	}
 }
 
-func TestContains(t *testing.T) {
-	tests := []struct {
-		name  string
-		slice []string
-		item  string
-		want  bool
-	}{
-		{"Present", []string{"a", "b", "c"}, "b", true},
-		{"NotPresent", []string{"a", "b", "c"}, "d", false},
-		{"EmptySlice", []string{}, "a", false},
-		{"EmptyString", []string{"a", "b", ""}, "", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := contains(tt.slice, tt.item); got != tt.want {
-				t.Errorf("contains() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func configEntriesAreEqual(a, b ConfigEntry) bool {
-	if a.Size != b.Size || a.Diff != b.Diff || a.Files != b.Files {
-		return false
-	}
-	if len(a.Labels) != len(b.Labels) {
-		return false
-	}
-	for i, label := range a.Labels {
-		if label != b.Labels[i] {
-			return false
-		}
-	}
-	return true
+	return a.Size == b.Size && a.Diff == b.Diff && a.Files == b.Files && slices.Equal(a.Labels, b.Labels)
 }
 
 func mockCommitFile(filename string, status string, changes int, additions int) *github.CommitFile {
@@ -583,7 +550,7 @@ func TestShouldExcludeFile(t *testing.T) {
 
 // newTestProcessor spins up a stub GitHub API served by handler and returns a
 // processor wired to it.
-func newTestProcessor(t *testing.T, handler http.Handler) *PullRequestProcessor {
+func newTestProcessor(t *testing.T, config Config, handler http.Handler) *PullRequestProcessor {
 	t.Helper()
 
 	server := httptest.NewServer(handler)
@@ -595,7 +562,7 @@ func newTestProcessor(t *testing.T, handler http.Handler) *PullRequestProcessor 
 		t.Fatalf("creating GitHub client: %v", err)
 	}
 
-	return NewPullRequestProcessor(t.Context(), &GitHubClientWrapper{client: client}, "cbrgm", "pr-size-labeler-action", 1, Config{})
+	return NewPullRequestProcessor(t.Context(), &GitHubClientWrapper{client: client}, "cbrgm", "pr-size-labeler-action", 1, config)
 }
 
 func TestFetchPullRequestFilesFollowsPagination(t *testing.T) {
@@ -631,7 +598,7 @@ func TestFetchPullRequestFilesFollowsPagination(t *testing.T) {
 		}
 	})
 
-	files, err := newTestProcessor(t, mux).fetchPullRequestFiles()
+	files, err := newTestProcessor(t, Config{}, mux).fetchPullRequestFiles()
 	if err != nil {
 		t.Fatalf("fetchPullRequestFiles() returned error: %v", err)
 	}
@@ -657,11 +624,167 @@ func TestFetchPullRequestFilesReturnsError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 
-	files, err := newTestProcessor(t, mux).fetchPullRequestFiles()
+	files, err := newTestProcessor(t, Config{}, mux).fetchPullRequestFiles()
 	if err == nil {
 		t.Fatalf("fetchPullRequestFiles() = %v, want error", files)
 	}
 	if files != nil {
 		t.Errorf("fetchPullRequestFiles() = %v, want nil files on error", files)
+	}
+}
+
+func TestShouldExcludeFileDirectoryPatternRespectsBoundary(t *testing.T) {
+	tests := []struct {
+		name       string
+		filename   string
+		patterns   []string
+		wantResult bool
+	}{
+		{
+			name:       "exclude file inside the directory",
+			filename:   "docs/guide.md",
+			patterns:   []string{"docs/*"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude file nested deeper in the directory",
+			filename:   "docs/api/guide.md",
+			patterns:   []string{"docs/*"},
+			wantResult: true,
+		},
+		{
+			name:       "do not exclude a sibling directory sharing the prefix",
+			filename:   "docsite/guide.md",
+			patterns:   []string{"docs/*"},
+			wantResult: false,
+		},
+		{
+			name:       "do not exclude a file sharing the prefix",
+			filename:   "docs.go",
+			patterns:   []string{"docs/*"},
+			wantResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldExcludeFile(tt.filename, tt.patterns); got != tt.wantResult {
+				t.Errorf("shouldExcludeFile(%q, %v) = %v, want %v", tt.filename, tt.patterns, got, tt.wantResult)
+			}
+		})
+	}
+}
+
+func TestValidateConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  Config
+		wantErr bool
+	}{
+		{
+			name:    "no label configs is rejected",
+			config:  Config{},
+			wantErr: true,
+		},
+		{
+			name:    "entry without a size is rejected",
+			config:  Config{LabelConfigs: []ConfigEntry{{Files: 1, Diff: 10, Labels: []string{"size/xs"}}}},
+			wantErr: true,
+		},
+		{
+			name:    "entry without labels is rejected",
+			config:  Config{LabelConfigs: []ConfigEntry{{Size: "xs", Files: 1, Diff: 10}}},
+			wantErr: true,
+		},
+		{
+			name: "valid config is accepted",
+			config: Config{LabelConfigs: []ConfigEntry{
+				{Size: "xs", Files: 1, Diff: 10, Labels: []string{"size/xs"}},
+				{Size: "s", Files: 10, Diff: 100, Labels: []string{"size/s"}},
+			}},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUpdatePullRequestLabelSwapsSizeLabels(t *testing.T) {
+	config := Config{LabelConfigs: []ConfigEntry{
+		{Size: "xs", Files: 1, Diff: 10, Labels: []string{"size/xs"}},
+		{Size: "l", Files: 50, Diff: 500, Labels: []string{"size/l", "pairing-wanted"}},
+	}}
+
+	var (
+		removed []string
+		added   [][]string
+	)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /repos/cbrgm/pr-size-labeler-action/pulls/1", func(w http.ResponseWriter, _ *http.Request) {
+		pr := &github.PullRequest{Labels: []*github.Label{
+			{Name: "size/xs"},
+			{Name: "needs-review"},
+		}}
+		if err := json.NewEncoder(w).Encode(pr); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+	mux.HandleFunc("DELETE /repos/cbrgm/pr-size-labeler-action/issues/1/labels/{name...}", func(w http.ResponseWriter, r *http.Request) {
+		removed = append(removed, r.PathValue("name"))
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("POST /repos/cbrgm/pr-size-labeler-action/issues/1/labels", func(w http.ResponseWriter, r *http.Request) {
+		var labels []string
+		if err := json.NewDecoder(r.Body).Decode(&labels); err != nil {
+			t.Errorf("decoding request: %v", err)
+		}
+		added = append(added, labels)
+		if err := json.NewEncoder(w).Encode([]*github.Label{}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+
+	entry := config.LabelConfigs[1]
+	if err := newTestProcessor(t, config, mux).updatePullRequestLabel(entry); err != nil {
+		t.Fatalf("updatePullRequestLabel() returned error: %v", err)
+	}
+
+	if want := []string{"size/xs"}; !slices.Equal(removed, want) {
+		t.Errorf("removed labels = %v, want %v", removed, want)
+	}
+	if len(added) != 1 {
+		t.Fatalf("add label requests = %d, want 1", len(added))
+	}
+	if want := []string{"size/l", "pairing-wanted"}; !slices.Equal(added[0], want) {
+		t.Errorf("added labels = %v, want %v", added[0], want)
+	}
+}
+
+func TestUpdatePullRequestLabelKeepsLabelsAlreadyPresent(t *testing.T) {
+	config := Config{LabelConfigs: []ConfigEntry{
+		{Size: "xs", Files: 1, Diff: 10, Labels: []string{"size/xs"}},
+	}}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /repos/cbrgm/pr-size-labeler-action/pulls/1", func(w http.ResponseWriter, _ *http.Request) {
+		pr := &github.PullRequest{Labels: []*github.Label{{Name: "size/xs"}}}
+		if err := json.NewEncoder(w).Encode(pr); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+	mux.HandleFunc("/", func(_ http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected %s %s, the label is already correct", r.Method, r.URL.Path)
+	})
+
+	if err := newTestProcessor(t, config, mux).updatePullRequestLabel(config.LabelConfigs[0]); err != nil {
+		t.Fatalf("updatePullRequestLabel() returned error: %v", err)
 	}
 }
