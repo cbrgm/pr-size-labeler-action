@@ -274,14 +274,15 @@ func (prp *PullRequestProcessor) updatePullRequestLabel(entry ConfigEntry) error
 		return err
 	}
 
-	for _, label := range entry.Labels {
-		if labelExists(pr, label) {
-			continue
-		}
+	missing := slices.DeleteFunc(slices.Clone(entry.Labels), func(label string) bool {
+		return labelExists(pr, label)
+	})
+	if len(missing) == 0 {
+		return nil
+	}
 
-		if _, _, err := prp.clientWrapper.client.Issues.AddLabelsToIssue(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber, []string{label}); err != nil {
-			return fmt.Errorf("adding label %q: %w", label, err)
-		}
+	if _, _, err := prp.clientWrapper.client.Issues.AddLabelsToIssue(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber, missing); err != nil {
+		return fmt.Errorf("adding labels %v: %w", missing, err)
 	}
 
 	return nil

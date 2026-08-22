@@ -715,3 +715,76 @@ func TestValidateConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdatePullRequestLabelSwapsSizeLabels(t *testing.T) {
+	config := Config{LabelConfigs: []ConfigEntry{
+		{Size: "xs", Files: 1, Diff: 10, Labels: []string{"size/xs"}},
+		{Size: "l", Files: 50, Diff: 500, Labels: []string{"size/l", "pairing-wanted"}},
+	}}
+
+	var (
+		removed []string
+		added   [][]string
+	)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /repos/cbrgm/pr-size-labeler-action/pulls/1", func(w http.ResponseWriter, _ *http.Request) {
+		pr := &github.PullRequest{Labels: []*github.Label{
+			{Name: "size/xs"},
+			{Name: "needs-review"},
+		}}
+		if err := json.NewEncoder(w).Encode(pr); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+	mux.HandleFunc("DELETE /repos/cbrgm/pr-size-labeler-action/issues/1/labels/{name...}", func(w http.ResponseWriter, r *http.Request) {
+		removed = append(removed, r.PathValue("name"))
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("POST /repos/cbrgm/pr-size-labeler-action/issues/1/labels", func(w http.ResponseWriter, r *http.Request) {
+		var labels []string
+		if err := json.NewDecoder(r.Body).Decode(&labels); err != nil {
+			t.Errorf("decoding request: %v", err)
+		}
+		added = append(added, labels)
+		if err := json.NewEncoder(w).Encode([]*github.Label{}); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+
+	entry := config.LabelConfigs[1]
+	if err := newTestProcessor(t, config, mux).updatePullRequestLabel(entry); err != nil {
+		t.Fatalf("updatePullRequestLabel() returned error: %v", err)
+	}
+
+	if want := []string{"size/xs"}; !slices.Equal(removed, want) {
+		t.Errorf("removed labels = %v, want %v", removed, want)
+	}
+	if len(added) != 1 {
+		t.Fatalf("add label requests = %d, want 1", len(added))
+	}
+	if want := []string{"size/l", "pairing-wanted"}; !slices.Equal(added[0], want) {
+		t.Errorf("added labels = %v, want %v", added[0], want)
+	}
+}
+
+func TestUpdatePullRequestLabelKeepsLabelsAlreadyPresent(t *testing.T) {
+	config := Config{LabelConfigs: []ConfigEntry{
+		{Size: "xs", Files: 1, Diff: 10, Labels: []string{"size/xs"}},
+	}}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /repos/cbrgm/pr-size-labeler-action/pulls/1", func(w http.ResponseWriter, _ *http.Request) {
+		pr := &github.PullRequest{Labels: []*github.Label{{Name: "size/xs"}}}
+		if err := json.NewEncoder(w).Encode(pr); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+	mux.HandleFunc("/", func(_ http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected %s %s, the label is already correct", r.Method, r.URL.Path)
+	})
+
+	if err := newTestProcessor(t, config, mux).updatePullRequestLabel(config.LabelConfigs[0]); err != nil {
+		t.Fatalf("updatePullRequestLabel() returned error: %v", err)
+	}
+}
