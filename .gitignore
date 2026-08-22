@@ -31,3 +31,6 @@ coverage*
 /results
 /bin
 /out
+
+# Built binary (go build ./... drops it here)
+/pr-size-labeler-action
