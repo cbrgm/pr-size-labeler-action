@@ -211,25 +211,25 @@ func TestGetSize(t *testing.T) {
 		name          string
 		configuration []ConfigEntry
 		currentCount  int
-		paramName     string
+		threshold     thresholdFunc
 		want          ConfigEntry
 	}{
 		// Tests for file count
-		{"Fewer files than XS threshold", configuration, 0, ParamNameFiles, xsConfig},
-		{"Files equal to S threshold", configuration, 10, ParamNameFiles, sConfig},
-		{"Files between S and M thresholds", configuration, 15, ParamNameFiles, mConfig},
-		{"More files than XL threshold", configuration, 105, ParamNameFiles, xlConfig},
+		{"Fewer files than XS threshold", configuration, 0, filesThreshold, xsConfig},
+		{"Files equal to S threshold", configuration, 10, filesThreshold, sConfig},
+		{"Files between S and M thresholds", configuration, 15, filesThreshold, mConfig},
+		{"More files than XL threshold", configuration, 105, filesThreshold, xlConfig},
 
 		// Tests for diff count
-		{"Fewer changes than XS threshold", configuration, 5, ParamNameDiff, xsConfig},
-		{"Changes equal to M threshold", configuration, 100, ParamNameDiff, mConfig},
-		{"Changes between S and M thresholds", configuration, 35, ParamNameDiff, sConfig},
-		{"More changes than XL threshold", configuration, 1500, ParamNameDiff, xlConfig},
+		{"Fewer changes than XS threshold", configuration, 5, diffThreshold, xsConfig},
+		{"Changes equal to M threshold", configuration, 100, diffThreshold, mConfig},
+		{"Changes between S and M thresholds", configuration, 35, diffThreshold, sConfig},
+		{"More changes than XL threshold", configuration, 1500, diffThreshold, xlConfig},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getSize(tt.configuration, tt.currentCount, tt.paramName)
+			got := getSize(tt.configuration, tt.currentCount, tt.threshold)
 			if !configEntriesAreEqual(got, tt.want) {
 				t.Errorf("getSize() = %v, want %v", got, tt.want)
 			}
@@ -370,41 +370,8 @@ func TestIsValidRepoNameFormat(t *testing.T) {
 	}
 }
 
-func TestContains(t *testing.T) {
-	tests := []struct {
-		name  string
-		slice []string
-		item  string
-		want  bool
-	}{
-		{"Present", []string{"a", "b", "c"}, "b", true},
-		{"NotPresent", []string{"a", "b", "c"}, "d", false},
-		{"EmptySlice", []string{}, "a", false},
-		{"EmptyString", []string{"a", "b", ""}, "", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := contains(tt.slice, tt.item); got != tt.want {
-				t.Errorf("contains() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func configEntriesAreEqual(a, b ConfigEntry) bool {
-	if a.Size != b.Size || a.Diff != b.Diff || a.Files != b.Files {
-		return false
-	}
-	if len(a.Labels) != len(b.Labels) {
-		return false
-	}
-	for i, label := range a.Labels {
-		if label != b.Labels[i] {
-			return false
-		}
-	}
-	return true
+	return a.Size == b.Size && a.Diff == b.Diff && a.Files == b.Files && slices.Equal(a.Labels, b.Labels)
 }
 
 func mockCommitFile(filename string, status string, changes int, additions int) *github.CommitFile {
@@ -583,7 +550,7 @@ func TestShouldExcludeFile(t *testing.T) {
 
 // newTestProcessor spins up a stub GitHub API served by handler and returns a
 // processor wired to it.
-func newTestProcessor(t *testing.T, handler http.Handler) *PullRequestProcessor {
+func newTestProcessor(t *testing.T, config Config, handler http.Handler) *PullRequestProcessor {
 	t.Helper()
 
 	server := httptest.NewServer(handler)
@@ -595,7 +562,7 @@ func newTestProcessor(t *testing.T, handler http.Handler) *PullRequestProcessor 
 		t.Fatalf("creating GitHub client: %v", err)
 	}
 
-	return NewPullRequestProcessor(t.Context(), &GitHubClientWrapper{client: client}, "cbrgm", "pr-size-labeler-action", 1, Config{})
+	return NewPullRequestProcessor(t.Context(), &GitHubClientWrapper{client: client}, "cbrgm", "pr-size-labeler-action", 1, config)
 }
 
 func TestFetchPullRequestFilesFollowsPagination(t *testing.T) {
@@ -631,7 +598,7 @@ func TestFetchPullRequestFilesFollowsPagination(t *testing.T) {
 		}
 	})
 
-	files, err := newTestProcessor(t, mux).fetchPullRequestFiles()
+	files, err := newTestProcessor(t, Config{}, mux).fetchPullRequestFiles()
 	if err != nil {
 		t.Fatalf("fetchPullRequestFiles() returned error: %v", err)
 	}
@@ -657,7 +624,7 @@ func TestFetchPullRequestFilesReturnsError(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 
-	files, err := newTestProcessor(t, mux).fetchPullRequestFiles()
+	files, err := newTestProcessor(t, Config{}, mux).fetchPullRequestFiles()
 	if err == nil {
 		t.Fatalf("fetchPullRequestFiles() = %v, want error", files)
 	}
