@@ -3,7 +3,6 @@
 **Automatically labels pull requests in your GitHub repository based on the size of changes.**
 
 [![GitHub release](https://img.shields.io/github/release/cbrgm/pr-size-labeler-action.svg)](https://github.com/cbrgm/pr-size-labeler-action)
-[![Go Report Card](https://goreportcard.com/badge/github.com/cbrgm/pr-size-labeler-action)](https://goreportcard.com/report/github.com/cbrgm/pr-size-labeler-action)
 [![go-lint-test](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-lint-test.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-lint-test.yml)
 [![go-binaries](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-binaries.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/go-binaries.yml)
 [![container](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/container.yml/badge.svg)](https://github.com/cbrgm/cbrgm-pr-size-labeler-action/actions/workflows/container.yml)
