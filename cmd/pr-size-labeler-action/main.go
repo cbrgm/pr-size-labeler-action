@@ -329,10 +329,10 @@ func shouldExcludeFile(filename string, patterns []string) bool {
 			return true
 		}
 
-		// Check if the pattern specifies a directory and matches the beginning of the filename
-		if strings.HasSuffix(pattern, "/*") {
-			dirPattern := filepath.Dir(pattern)
-			if strings.HasPrefix(filename, dirPattern) {
+		// A trailing "/*" excludes the directory recursively, which filepath.Match
+		// cannot express because its wildcards never cross a separator.
+		if dir, ok := strings.CutSuffix(pattern, "/*"); ok {
+			if strings.HasPrefix(filename, dir+"/") {
 				return true
 			}
 		}

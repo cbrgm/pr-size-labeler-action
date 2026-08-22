@@ -665,3 +665,45 @@ func TestFetchPullRequestFilesReturnsError(t *testing.T) {
 		t.Errorf("fetchPullRequestFiles() = %v, want nil files on error", files)
 	}
 }
+
+func TestShouldExcludeFileDirectoryPatternRespectsBoundary(t *testing.T) {
+	tests := []struct {
+		name       string
+		filename   string
+		patterns   []string
+		wantResult bool
+	}{
+		{
+			name:       "exclude file inside the directory",
+			filename:   "docs/guide.md",
+			patterns:   []string{"docs/*"},
+			wantResult: true,
+		},
+		{
+			name:       "exclude file nested deeper in the directory",
+			filename:   "docs/api/guide.md",
+			patterns:   []string{"docs/*"},
+			wantResult: true,
+		},
+		{
+			name:       "do not exclude a sibling directory sharing the prefix",
+			filename:   "docsite/guide.md",
+			patterns:   []string{"docs/*"},
+			wantResult: false,
+		},
+		{
+			name:       "do not exclude a file sharing the prefix",
+			filename:   "docs.go",
+			patterns:   []string{"docs/*"},
+			wantResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldExcludeFile(tt.filename, tt.patterns); got != tt.wantResult {
+				t.Errorf("shouldExcludeFile(%q, %v) = %v, want %v", tt.filename, tt.patterns, got, tt.wantResult)
+			}
+		})
+	}
+}
