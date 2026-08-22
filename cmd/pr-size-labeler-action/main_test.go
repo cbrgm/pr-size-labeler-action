@@ -707,3 +707,44 @@ func TestShouldExcludeFileDirectoryPatternRespectsBoundary(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  Config
+		wantErr bool
+	}{
+		{
+			name:    "no label configs is rejected",
+			config:  Config{},
+			wantErr: true,
+		},
+		{
+			name:    "entry without a size is rejected",
+			config:  Config{LabelConfigs: []ConfigEntry{{Files: 1, Diff: 10, Labels: []string{"size/xs"}}}},
+			wantErr: true,
+		},
+		{
+			name:    "entry without labels is rejected",
+			config:  Config{LabelConfigs: []ConfigEntry{{Size: "xs", Files: 1, Diff: 10}}},
+			wantErr: true,
+		},
+		{
+			name: "valid config is accepted",
+			config: Config{LabelConfigs: []ConfigEntry{
+				{Size: "xs", Files: 1, Diff: 10, Labels: []string{"size/xs"}},
+				{Size: "s", Files: 10, Diff: 100, Labels: []string{"size/s"}},
+			}},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

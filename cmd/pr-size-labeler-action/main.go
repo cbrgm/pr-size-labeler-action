@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -189,15 +190,44 @@ func getConfigFilePath(providedPath string) string {
 	return providedPath
 }
 
-// loadConfig loads the configuration from the YAML file.
+// loadConfig loads and validates the configuration from the YAML file.
 func loadConfig(filePath string) (Config, error) {
 	var config Config
+
 	yamlFile, err := os.ReadFile(filePath)
 	if err != nil {
-		return config, err
+		return config, fmt.Errorf("reading %s: %w", filePath, err)
 	}
-	err = yaml.Unmarshal(yamlFile, &config)
-	return config, err
+
+	if err := yaml.Unmarshal(yamlFile, &config); err != nil {
+		return config, fmt.Errorf("parsing %s: %w", filePath, err)
+	}
+
+	if err := validateConfig(config); err != nil {
+		return config, fmt.Errorf("invalid configuration in %s: %w", filePath, err)
+	}
+
+	return config, nil
+}
+
+// validateConfig checks that the configuration can actually be used to pick a
+// label, so a malformed file fails with a readable message instead of a panic
+// further down.
+func validateConfig(config Config) error {
+	if len(config.LabelConfigs) == 0 {
+		return errors.New("label_configs must contain at least one entry")
+	}
+
+	for i, entry := range config.LabelConfigs {
+		if entry.Size == "" {
+			return fmt.Errorf("label_configs[%d]: size must not be empty", i)
+		}
+		if len(entry.Labels) == 0 {
+			return fmt.Errorf("label_configs[%d] (%s): labels must not be empty", i, entry.Size)
+		}
+	}
+
+	return nil
 }
 
 // fetchPullRequestFiles fetches the list of files in a pull request, following
