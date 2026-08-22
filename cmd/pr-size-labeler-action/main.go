@@ -45,6 +45,10 @@ const (
 	DefaultConfigPath = ".github/pull-request-size.yml"
 	ParamNameFiles    = "files"
 	ParamNameDiff     = "diff"
+
+	// maxFilesPerPage is the largest page size the GitHub API accepts for
+	// listing pull request files.
+	maxFilesPerPage = 100
 )
 
 // ConfigEntry defines a single configuration entry for label assignment.
@@ -196,10 +200,25 @@ func loadConfig(filePath string) (Config, error) {
 	return config, err
 }
 
-// fetchPullRequestFiles fetches the list of files in a pull request.
+// fetchPullRequestFiles fetches the list of files in a pull request, following
+// pagination so that pull requests with more than one page of changed files are
+// counted in full.
 func (prp *PullRequestProcessor) fetchPullRequestFiles() ([]*github.CommitFile, error) {
-	files, _, err := prp.clientWrapper.client.PullRequests.ListFiles(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber, nil)
-	return files, err
+	opts := &github.ListOptions{PerPage: maxFilesPerPage}
+
+	var allFiles []*github.CommitFile
+	for {
+		files, resp, err := prp.clientWrapper.client.PullRequests.ListFiles(prp.ctx, prp.repoOwner, prp.repoName, prp.prNumber, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		allFiles = append(allFiles, files...)
+		if resp.NextPage == 0 {
+			return allFiles, nil
+		}
+		opts.Page = resp.NextPage
+	}
 }
 
 // updatePullRequestLabel updates the labels of the pull request based on its size.

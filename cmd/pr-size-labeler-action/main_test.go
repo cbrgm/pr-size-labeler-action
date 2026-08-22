@@ -1,6 +1,13 @@
 package main
 
 import (
+	"cmp"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/google/go-github/v90/github"
@@ -571,5 +578,90 @@ func TestShouldExcludeFile(t *testing.T) {
 				t.Errorf("shouldExcludeFile(%v, %v) = %v, want %v", tt.filename, tt.patterns, result, tt.wantResult)
 			}
 		})
+	}
+}
+
+// newTestProcessor spins up a stub GitHub API served by handler and returns a
+// processor wired to it.
+func newTestProcessor(t *testing.T, handler http.Handler) *PullRequestProcessor {
+	t.Helper()
+
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+
+	baseURL := server.URL + "/"
+	client, err := github.NewClient(github.WithURLs(&baseURL, nil))
+	if err != nil {
+		t.Fatalf("creating GitHub client: %v", err)
+	}
+
+	return NewPullRequestProcessor(t.Context(), &GitHubClientWrapper{client: client}, "cbrgm", "pr-size-labeler-action", 1, Config{})
+}
+
+func TestFetchPullRequestFilesFollowsPagination(t *testing.T) {
+	pages := [][]string{
+		{"a.go", "b.go"},
+		{"c.go", "d.go"},
+		{"e.go"},
+	}
+
+	var gotPerPage []string
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /repos/cbrgm/pr-size-labeler-action/pulls/1/files", func(w http.ResponseWriter, r *http.Request) {
+		gotPerPage = append(gotPerPage, r.URL.Query().Get("per_page"))
+
+		page, err := strconv.Atoi(cmp.Or(r.URL.Query().Get("page"), "1"))
+		if err != nil || page < 1 || page > len(pages) {
+			t.Errorf("unexpected page parameter %q", r.URL.Query().Get("page"))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if page < len(pages) {
+			w.Header().Set("Link", fmt.Sprintf(`<%s?page=%d>; rel="next", <%s?page=%d>; rel="last"`,
+				r.URL.Path, page+1, r.URL.Path, len(pages)))
+		}
+
+		files := make([]*github.CommitFile, 0, len(pages[page-1]))
+		for _, name := range pages[page-1] {
+			files = append(files, &github.CommitFile{Filename: github.Ptr(name), Changes: github.Ptr(1)})
+		}
+		if err := json.NewEncoder(w).Encode(files); err != nil {
+			t.Errorf("encoding response: %v", err)
+		}
+	})
+
+	files, err := newTestProcessor(t, mux).fetchPullRequestFiles()
+	if err != nil {
+		t.Fatalf("fetchPullRequestFiles() returned error: %v", err)
+	}
+
+	var got []string
+	for _, file := range files {
+		got = append(got, file.GetFilename())
+	}
+
+	want := slices.Concat(pages...)
+	if !slices.Equal(got, want) {
+		t.Errorf("fetchPullRequestFiles() = %v, want %v", got, want)
+	}
+
+	if want := []string{"100", "100", "100"}; !slices.Equal(gotPerPage, want) {
+		t.Errorf("per_page parameters = %v, want %v", gotPerPage, want)
+	}
+}
+
+func TestFetchPullRequestFilesReturnsError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /repos/cbrgm/pr-size-labeler-action/pulls/1/files", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+
+	files, err := newTestProcessor(t, mux).fetchPullRequestFiles()
+	if err == nil {
+		t.Fatalf("fetchPullRequestFiles() = %v, want error", files)
+	}
+	if files != nil {
+		t.Errorf("fetchPullRequestFiles() = %v, want nil files on error", files)
 	}
 }
