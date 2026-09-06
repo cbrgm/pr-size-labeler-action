@@ -4,7 +4,7 @@ go 1.26.5
 
 require (
 	github.com/alexflint/go-arg v1.6.1
-	github.com/google/go-github/v90 v90.0.0
+	github.com/google/go-github/v91 v91.0.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
