@@ -53,6 +53,10 @@ jobs:
 | `config_file_path` | The path to the configuration file | No | `.github/pull-request-size.yml` |
 | `github_enterprise_url` | The base URL for GitHub Enterprise (if applicable) | No | - |
 
+### Pull Requests from Forks
+
+The action runs on `pull_request`, `pull_request_target` and `workflow_run` events. To label fork PRs without `pull_request_target`, save the PR number as an artifact in a `pull_request` workflow, then run this action from a `workflow_run` workflow with `pull-requests: write` and pass that number as `github_pr_number`.
+
 ### GitHub Enterprise Support
 
 For GitHub Enterprise instances, specify the base URL of your GitHub Enterprise server:
