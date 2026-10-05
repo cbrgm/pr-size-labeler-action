@@ -178,6 +178,7 @@ func TestIsValidGitHubEventType(t *testing.T) {
 	}{
 		{"Valid Event pull_request", "pull_request", true},
 		{"Valid Event pull_request_target", "pull_request_target", true},
+		{"Valid Event workflow_run", "workflow_run", true},
 		{"Invalid Event empty", "", false},
 		{"Invalid Event random string", "random_event", false},
 		{"Invalid Event issue", "issue", false},
