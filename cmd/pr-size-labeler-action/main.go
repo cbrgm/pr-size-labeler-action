@@ -177,7 +177,7 @@ func run() error {
 // isValidGitHubEventType checks if the event name is a valid pull request event.
 func isValidGitHubEventType(eventName string) bool {
 	switch strings.ToLower(eventName) {
-	case "pull_request", "pull_request_target":
+	case "pull_request", "pull_request_target", "workflow_run":
 		return true
 	default:
 		fmt.Println("Event is not a valid pull request event, doing nothing")
